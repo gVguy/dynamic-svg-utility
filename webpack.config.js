@@ -10,6 +10,7 @@ module.exports = env => ({
    plugins: [new HtmlWebpackPlugin(), new CleanTerminalPlugin()],
    output: {
       path: path.resolve(__dirname, './dist'),
+      publicPath: env.production ? './' : '/',
       clean: true
    },
    devtool: env.production ? false : 'inline-source-map',
