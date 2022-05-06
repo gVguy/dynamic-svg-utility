@@ -2,6 +2,8 @@
 
 Rewrite your SVG's dimensions, paths and coordinates for responsive implementations
 
+<p align="center">🚀&nbsp;&nbsp;<b><a href="https://gvguy.github.io/dynamic-svg-utility/">Open Utility</a></b>&nbsp;&nbsp;🚀</p>
+
 ## What it does
 
 - rewrites SVG's `width` and `viewBox` attributes to match **target width**
