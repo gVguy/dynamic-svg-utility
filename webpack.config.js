@@ -6,9 +6,15 @@ const CleanTerminalPlugin = require('clean-terminal-webpack-plugin')
 
 module.exports = env => ({
    mode: env.production ? 'production' : 'development',
-   entry: './src/entry.js',
-   plugins: [new HtmlWebpackPlugin(), new CleanTerminalPlugin()],
+   entry: './src/entry.ts',
+   plugins: [
+      new HtmlWebpackPlugin({
+         template: './src/index.html'
+       }),
+      new CleanTerminalPlugin()
+   ],
    output: {
+      filename: 'main.js',
       path: path.resolve(__dirname, './dist'),
       publicPath: env.production ? './' : '/',
       clean: true

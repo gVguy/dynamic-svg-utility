@@ -1,5 +1,5 @@
 {
-   "name": "platinum",
+   "name": "dynamic-svg",
    "version": "1.0.0",
    "description": "webpack app",
    "main": "src/entry.js",
