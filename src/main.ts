@@ -1,7 +1,7 @@
 const input: HTMLTextAreaElement = document.querySelector('#input')
 const output: HTMLTextAreaElement = document.querySelector('#output')
 const svgWrapper: HTMLElement = document.querySelector('#svg-wrapper')
-const outputSvgWrapper = document.querySelector('#output-svg-wrapper')
+const outputSvgWrapper: HTMLElement = document.querySelector('#output-svg-wrapper')
 const verticalSelector: HTMLElement = document.querySelector('#vertical-selector')
 const main: HTMLElement = document.querySelector('#main')
 
@@ -36,10 +36,14 @@ function inputHandler() {
   svgWrapper.innerHTML = input.value
   svg = svgWrapper.querySelector('svg')
   if (svg) {
-    svgWidth = Number(svgWrapper.innerHTML.match(/(<svg[^>]+width=")(\d+)/)[2])
-    svgHeight = Number(svgWrapper.innerHTML.match(/(<svg[^>]+height=")(\d+)/)[2])
-    statsWidth.innerHTML = svgWidth + ''
-    statsHeight.innerHTML = svgWrapper.offsetHeight + ''
+    svgWidth = Number(svgWrapper.innerHTML.match(/(<svg[^>]+width=")(\d+)/)?.[2]) || Number(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="\d+\s\d+\s)(\d+)/)?.[2])
+    svgHeight = Number(svgWrapper.innerHTML.match(/(<svg[^>]+height=")(\d+)/)?.[2]) || Number(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="\d+\s\d+\s\d+\s)(\d+)/)?.[2])
+    setDimensions(svgWidth, svgHeight)
+    if (!svgWidth || !svgHeight) {
+      svgWrapper.innerHTML = ''
+      setOutput('invalid svg')
+      return
+    }
     // rewrite svg ids
     let regex = /\sid="([^"]+)"/g
     let output = input.value
@@ -53,9 +57,17 @@ function inputHandler() {
     })
     svgWrapper.innerHTML = output
   } else {
-    statsWidth.innerHTML = ''
-    statsHeight.innerHTML = ''
+    svgWrapper.innerHTML = ''
+    setDimensions()
+    setOutput('invalid svg')
   }
+}
+
+function setDimensions(w: string | number = '', h: string | number = '') {
+  svgWrapper.style.width = w ? w + 'px' : ''
+  svgWrapper.style.height = h ? h + 'px' : ''
+  statsWidth.innerHTML = w + ''
+  statsHeight.innerHTML = h + ''
 }
 
 function mouseMoveHandler(e: MouseEvent) {
@@ -117,7 +129,8 @@ function processSvg() {
     regex = new RegExp(regex, '')
     const width = w.match(regex)[1]
     const processedWidthNumber = processNumber(width)
-    const processedWidth = ` ${p(':')}width="${processedWidthNumber}"`
+    const isDynamic = typeof processedWidthNumber == 'string'
+    const processedWidth = ` ${p(':', isDynamic)}width="${processedWidthNumber}"`
     output = output.replace(w, processedWidth)
   })
   // x's
@@ -129,7 +142,8 @@ function processSvg() {
     const xIdx = match[1] ?? ''
     const value = match[2]
     const processedValue = processNumber(value)
-    const processedX = ` ${p(':')}x${xIdx}="${processedValue}"`
+    const isDynamic = typeof processedValue == 'string'
+    const processedX = ` ${p(':', isDynamic)}x${xIdx}="${processedValue}"`
     output = output.replace(x, processedX)
   })
   // viewbox
@@ -139,64 +153,60 @@ function processSvg() {
 }
 
 function processPath(d: string) {
-  const inputValue = d.replace(/\sd="([^"]+)"/, '$1')
-  
-  let regex = /\s?([MHVCZL])\s?/g
-  
-  const formatted = inputValue.replace(regex, ' $1 ')
-  let replaced = formatted
-  let processed = ''
+  const inputPath = d.replace(/\sd="([^"]+)"/, '$1')
+  let outputPath = ''
 
-  regex = /([MLHCSQTA])([^MmLlHhVvCcSsQqTtAaZz]+)/gm
-  const allCommands = formatted.match(regex)
+  let regex = /([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]+)?/gm
+  const allCommands = inputPath.match(regex)
   regex = new RegExp(regex, '')
-
-  const matchedPairs: string[] = []
 
   allCommands.forEach(command => {
     const match = command.match(regex)
     const commandKey = match[1]
-    const commandValue = match[2].trim()
-    const valuePairs = commandValue.match(/\S+(\s\S+)?/g)
-    matchedPairs.push(...valuePairs)
-  })
-
-  matchedPairs.forEach(pair => {
-    console.log(pair)
-    const pairSplit = pair.split(' ')
-
-    const processedPairSplit0 = processNumber(pairSplit[0])
-    if (typeof processedPairSplit0 == 'string') {
-      pairSplit[0] = '${' + processedPairSplit0 + '}'
+    const commandValue = match[2]?.trim()
+    const valueSplit = commandValue?.split(/[\s,]/) || []
+    let processedValues = []
+    if (/[mlhVvcsqtaZz]/.test(commandKey)) {
+      // doesn't need processing
+      processedValues = valueSplit
     } else {
-      pairSplit[0] = processedPairSplit0 + ''
+      // needs processing
+      let counter = 0
+      while (valueSplit.length) {
+        counter++
+        let n = valueSplit.shift()
+        if (counter % 2 == 1) {
+          // x
+          const processedN = processNumber(n)
+          if (typeof processedN == 'string') {
+            n = '${' + processedN + '}'
+          } else {
+            n = processedN + ''
+          }
+        } else {
+          // y
+        }
+        processedValues.push(n)
+      }
     }
-
-    if (pairSplit.length > 1) {
-      pairSplit[1] = Number(parseFloat(pairSplit[1]).toFixed(2)) + ''
-    }
-
-    const newPair = pairSplit.join(' ')
-    replaced = processed + replaced.slice(processed.length).replace(pair, newPair)
-
-    processed = replaced.slice(0, replaced.indexOf(newPair) + newPair.length)
-
+    outputPath += commandKey + ' ' + processedValues.join(' ') + ' '
   })
 
-  replaced = replaced.trim()
-  const isDynamic = replaced.includes('${')
-  
-  return ` ${p(':', isDynamic)}d="${p('`', isDynamic) + replaced + p('`', isDynamic)}"`
+  outputPath = outputPath.trimEnd()
+  const isDynamic = outputPath.includes('${')
+  outputPath = ` ${p(':', isDynamic)}d="${p('`', isDynamic) + outputPath + p('`', isDynamic)}"`
+  return outputPath
 }
 
 function processNumber(n: string) {
   const float = parseFloat(n)
   if (float > sliceX) {
     const distanceFromRight = svgWidth - float
+    const dispanceFromRightFixed = Number(distanceFromRight.toFixed(2))
     if (numberTargetWidth) {
-      return Number((numberTargetWidth - distanceFromRight).toFixed(2))
+      return Number(numberTargetWidth - dispanceFromRightFixed)
     } else {
-      return targetWidth + ' - ' + Number(distanceFromRight.toFixed(2))
+      return targetWidth + (dispanceFromRightFixed ? ' - ' + dispanceFromRightFixed : '')
     }
   } else {
     return Number(float.toFixed(2))
@@ -205,6 +215,13 @@ function processNumber(n: string) {
 
 function setOutput(html = '') {
   output.innerHTML = html
-  if (numberTargetWidth) outputSvgWrapper.innerHTML = html
-  else outputSvgWrapper.innerHTML = html ? 'dynamic preview not available' : ''
+  if (html.includes('<svg') && numberTargetWidth) {
+    outputSvgWrapper.innerHTML = html
+    outputSvgWrapper.style.width = targetWidth + 'px'
+    outputSvgWrapper.style.height = svgHeight + 'px'
+  } else {
+    outputSvgWrapper.innerHTML = html ? 'dynamic preview not available' : ''
+    outputSvgWrapper.style.width = ''
+    outputSvgWrapper.style.height = ''
+  }
 }

@@ -31,7 +31,8 @@ body {
       color: transparent;
       position: relative;
 
-      svg {
+      #svg-wrapper,
+      #output-svg-wrapper {
          border: 1px #3f3f3f solid;
       }
 
