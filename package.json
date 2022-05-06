@@ -5,13 +5,15 @@
    "main": "src/entry.js",
    "scripts": {
       "serve": "webpack serve",
-      "build": "webpack build  --env production"
+      "build": "webpack build  --env production",
+      "deploy": "gh-pages -d dist"
    },
    "author": "Ivan Che",
    "license": "ISC",
    "devDependencies": {
       "clean-terminal-webpack-plugin": "^3.0.0",
       "css-loader": "^6.5.1",
+      "gh-pages": "^3.2.3",
       "html-webpack-plugin": "^5.5.0",
       "sass": "^1.43.4",
       "sass-loader": "^12.3.0",
