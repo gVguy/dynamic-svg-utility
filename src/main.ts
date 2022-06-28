@@ -29,6 +29,7 @@ svgWrapper.addEventListener('click', svgClickHandler)
 processButton.addEventListener('click', processSvg)
 resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
+document.addEventListener('drop', dropHandler)
 
 function inputHandler() {
   resetSlice()
@@ -36,8 +37,9 @@ function inputHandler() {
   svgWrapper.innerHTML = input.value
   svg = svgWrapper.querySelector('svg')
   if (svg) {
-    svgWidth = Number(svgWrapper.innerHTML.match(/(<svg[^>]+width=")(\d+)/)?.[2]) || Number(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="\d+\s\d+\s)(\d+)/)?.[2])
-    svgHeight = Number(svgWrapper.innerHTML.match(/(<svg[^>]+height=")(\d+)/)?.[2]) || Number(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="\d+\s\d+\s\d+\s)(\d+)/)?.[2])
+    svgWidth = parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+width=")([\d.]+)/)?.[2]) || parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="[\d.]+\s[\d.]+\s)([\d.]+)/)?.[2])
+    svgHeight = parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+height=")([\d.]+)/)?.[2]) || parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="[\d.]+\s[\d.]+\s[\d.]+\s)([\d.]+)/)?.[2])
+    console.log(svgWidth, svgHeight)
     setDimensions(svgWidth, svgHeight)
     if (!svgWidth || !svgHeight) {
       svgWrapper.innerHTML = ''
@@ -251,5 +253,16 @@ function setOutput(html = '') {
     outputSvgWrapper.innerHTML = html ? 'dynamic preview not available' : ''
     outputSvgWrapper.style.width = ''
     outputSvgWrapper.style.height = ''
+  }
+}
+
+function dropHandler(e: DragEvent) {
+  e.preventDefault()
+  const file = e.dataTransfer.files[0]
+  const reader = new FileReader()
+  reader.readAsText(file)
+  reader.onload = () => {
+    input.value = reader.result as string
+    inputHandler()
   }
 }
