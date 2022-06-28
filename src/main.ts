@@ -160,13 +160,41 @@ function processPath(d: string) {
   const allCommands = inputPath.match(regex)
   regex = new RegExp(regex, '')
 
+  let absoluteX = 0
+  let absoluteY = 0
+
   allCommands.forEach(command => {
     const match = command.match(regex)
-    const commandKey = match[1]
+    let commandKey = match[1]
     const commandValue = match[2]?.trim()
-    const valueSplit = commandValue?.split(/[\s,]/) || []
+    const valueSplit = commandValue?.split(/[\s,]|(?=-)/) || []
     let processedValues = []
-    if (/[mlhVvcsqtaZz]/.test(commandKey)) {
+
+    if (/[mlhvcsqta]/.test(commandKey)) {
+      // relative command - replace with absolute
+      valueSplit.forEach((val, i) => {
+        if (commandKey !== 'v' && i % 2 == 0) {
+          // x
+          valueSplit[i] = (Number(val) + absoluteX) + ''
+        } else {
+          // y
+          valueSplit[i] = (Number(val) + absoluteY) + ''
+        }
+      })
+      commandKey = commandKey.toUpperCase()
+    }
+
+    // update absoluteX & absoluteY
+    if (commandKey == 'H') {
+      absoluteX = Number(valueSplit[0])
+    } else if (commandKey == 'V') {
+      absoluteY = Number(valueSplit[0])
+    } else if (valueSplit.length > 1) {
+      absoluteX = Number(valueSplit[valueSplit.length - 2])
+      absoluteY = Number(valueSplit[valueSplit.length - 1])
+    }
+
+    if (/[VvZz]/.test(commandKey)) {
       // doesn't need processing
       processedValues = valueSplit
     } else {
