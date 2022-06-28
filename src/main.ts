@@ -39,6 +39,11 @@ zoomInButton.addEventListener('click', zoomIn)
 zoomOutButton.addEventListener('click', zoomOut)
 document.addEventListener('drop', dropHandler)
 
+function getSvgCommandLength(cmd: string) {
+  const SVG_COMMAND_LENGTHS: { [key: string]: number} = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7 }
+  return SVG_COMMAND_LENGTHS[cmd.toLowerCase()]
+}
+
 function inputHandler() {
   resetSlice()
   setOutput()
@@ -178,12 +183,26 @@ function processPath(d: string) {
   let absoluteX = 0
   let absoluteY = 0
 
-  allCommands.forEach(command => {
+  for (let allCommandsIdx = 0; allCommandsIdx < allCommands.length; allCommandsIdx++) {
+    const command = allCommands[allCommandsIdx]
+
     const match = command.match(regex)
     let commandKey = match[1]
     const commandValue = match[2]?.trim()
-    const valueSplit = commandValue?.split(/[\s,]|(?=-)/) || []
+    const valueSplit = commandValue?.split(/[\s,]|(?=-)/).filter(v => v) || []
     let processedValues = []
+
+    // split long joined commands into single ones
+    const singleCommandLength = getSvgCommandLength(commandKey)
+    if (valueSplit.length > singleCommandLength) {
+      const leftoverValues = valueSplit.splice(singleCommandLength)
+      let leftoverKey: string
+      if (commandKey == 'm') leftoverKey = 'l'
+      else if (commandKey == 'M') leftoverKey = 'L'
+      else leftoverKey = commandKey
+      const joinedLeftover = leftoverKey + leftoverValues.join(' ')
+      allCommands.splice(allCommandsIdx + 1, 0, joinedLeftover)
+    }
 
     if (/[mlhvcsqta]/.test(commandKey)) {
       // relative command - replace with absolute
@@ -233,7 +252,7 @@ function processPath(d: string) {
       }
     }
     outputPath += commandKey + ' ' + processedValues.join(' ') + ' '
-  })
+  }
 
   outputPath = outputPath.trimEnd()
   const isDynamic = outputPath.includes('${')
