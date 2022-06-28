@@ -21,6 +21,7 @@ let targetWidth: string = null
 let numberTargetWidth: number = null
 let theme = '#060606'
 let zoom = 1
+let outputInterval: number = null
 
 const statsWidth: HTMLElement = document.querySelector('#stats-width')
 const statsHeight: HTMLElement = document.querySelector('#stats-height')
@@ -31,7 +32,7 @@ input.addEventListener('input', inputHandler)
 svgWrapper.addEventListener('mousemove', mouseMoveHandler)
 svgWrapper.addEventListener('mouseleave', svgLeaveHandler)
 svgWrapper.addEventListener('click', svgClickHandler)
-processButton.addEventListener('click', processSvg)
+processButton.addEventListener('click', () => processSvg(targetWidthInput.value))
 resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
 zoomInButton.addEventListener('click', zoomIn)
@@ -121,8 +122,8 @@ function p(str: string, condition = !numberTargetWidth) {
   return condition ? str : ''
 }
 
-function processSvg() {
-  targetWidth = targetWidthInput.value
+function processSvg(tw: string | number, withOutput = true) {
+  targetWidth = tw + ''
   numberTargetWidth = Number(targetWidth)
   if (!svg || !sliceX) return
   let output = input.value
@@ -159,8 +160,11 @@ function processSvg() {
   })
   // viewbox
   output = output.replace(/(viewBox="[\d.]+\s[\d.]+\s)[\d.]+(\s[\d.]+")/, `${p(':')}$1${ p('${') + targetWidth + p('}')}$2`)
-  setOutput(output)
-  setVerticalSelectorPos(true)
+  if (withOutput) {
+    setOutput(output)
+    setVerticalSelectorPos(true)
+  }
+  return output
 }
 
 function processPath(d: string) {
@@ -254,12 +258,31 @@ function processNumber(n: string) {
 
 function setOutput(html = '') {
   output.innerHTML = html
-  if (html.includes('<svg') && numberTargetWidth) {
-    outputSvgWrapper.innerHTML = html
-    outputSvgWrapper.style.width = targetWidth + 'px'
-    outputSvgWrapper.style.height = svgHeight + 'px'
+  clearInterval(outputInterval)
+
+  function displayOutputSvg(svg: string, width: number, height: number) {
+    outputSvgWrapper.innerHTML = svg
+    outputSvgWrapper.style.width = width + 'px'
+    outputSvgWrapper.style.height = height + 'px'
+  }
+
+  if (html.includes('<svg')) {
+    if (numberTargetWidth) {
+      displayOutputSvg(html, numberTargetWidth, svgHeight)
+    } else {
+      let addStep = 25
+      let additionalWidth = 0
+      outputInterval = window.setInterval(() => {
+        if (addStep > 0 && additionalWidth > 199) addStep = -25
+        else if (addStep < 0 && additionalWidth < 1) addStep = 25
+        additionalWidth += addStep
+        const resultWidth = svgWidth + additionalWidth
+        const svg = processSvg(resultWidth, false)
+        displayOutputSvg(svg, resultWidth, svgHeight)
+      }, 500)
+    }
   } else {
-    outputSvgWrapper.innerHTML = html ? 'dynamic preview not available' : ''
+    outputSvgWrapper.innerHTML = ''
     outputSvgWrapper.style.width = ''
     outputSvgWrapper.style.height = ''
   }

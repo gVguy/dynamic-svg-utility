@@ -14,14 +14,22 @@
       <div id="image-container">
         <div id="images-scroller">
           <div id="images-wrapper">
-            <div id="vertical-selector"></div>
-            <div id="svg-wrapper"></div>
+            <div id="input-svg-wrapper">
+              <div id="svg-wrapper"></div>
+              <div id="vertical-selector"></div>
+            </div>
             <div id="output-svg-wrapper"></div>
           </div>
         </div>
         <div id="controls">
           <button id="reset-button">reset</button>
-          <input id="target-width" placeholder="target width" value="width" />
+          <div id="target-width-wrapper" class="tooltip-wrapper">
+            <input id="target-width" placeholder="target width" value="width" />
+            <div class="tooltip">
+              <p>string values are treated as variables and produce dynamic vue.js templates</p>
+              <p>numeric values produce static svg of a defined width</p>
+            </div>
+          </div>
           <button id="process-button">process</button>
           <button id="theme-button">theme</button>
           <button id="zoom-in-button">+</button>
