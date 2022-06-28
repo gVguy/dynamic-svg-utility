@@ -4,11 +4,14 @@ const svgWrapper: HTMLElement = document.querySelector('#svg-wrapper')
 const outputSvgWrapper: HTMLElement = document.querySelector('#output-svg-wrapper')
 const verticalSelector: HTMLElement = document.querySelector('#vertical-selector')
 const main: HTMLElement = document.querySelector('#main')
+const imagesWrapper: HTMLElement = document.querySelector('#images-wrapper')
 
 const targetWidthInput: HTMLInputElement = document.querySelector('#target-width')
 const resetButton: HTMLElement = document.querySelector('#reset-button')
 const processButton: HTMLElement = document.querySelector('#process-button')
 const themeButton: HTMLElement = document.querySelector('#theme-button')
+const zoomInButton: HTMLElement = document.querySelector('#zoom-in-button')
+const zoomOutButton: HTMLElement = document.querySelector('#zoom-out-button')
 
 let svg: SVGElement = null
 let svgWidth: number = null
@@ -17,10 +20,12 @@ let sliceX: number = null
 let targetWidth: string = null
 let numberTargetWidth: number = null
 let theme = '#060606'
+let zoom = 1
 
 const statsWidth: HTMLElement = document.querySelector('#stats-width')
 const statsHeight: HTMLElement = document.querySelector('#stats-height')
 const statsSlice: HTMLElement = document.querySelector('#stats-slice')
+const statsZoom: HTMLElement = document.querySelector('#stats-zoom')
 
 input.addEventListener('input', inputHandler)
 svgWrapper.addEventListener('mousemove', mouseMoveHandler)
@@ -29,11 +34,14 @@ svgWrapper.addEventListener('click', svgClickHandler)
 processButton.addEventListener('click', processSvg)
 resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
+zoomInButton.addEventListener('click', zoomIn)
+zoomOutButton.addEventListener('click', zoomOut)
 document.addEventListener('drop', dropHandler)
 
 function inputHandler() {
   resetSlice()
   setOutput()
+  setZoom(1)
   svgWrapper.innerHTML = input.value
   svg = svgWrapper.querySelector('svg')
   if (svg) {
@@ -83,6 +91,7 @@ function setVerticalSelectorPos(show: boolean, e?: MouseEvent) {
   verticalSelector.style.height = svgWrapper.clientHeight + 'px'
   verticalSelector.style.top = svgWrapper.offsetTop + 'px'
   verticalSelector.style.left = svgWrapper.offsetLeft + offsetX + 'px'
+  verticalSelector.style.width = 1 / zoom + 'px'
 }
 
 function svgLeaveHandler() {
@@ -265,4 +274,20 @@ function dropHandler(e: DragEvent) {
     input.value = reader.result as string
     inputHandler()
   }
+}
+
+function zoomIn() {
+  setZoom(zoom + 0.1)
+}
+
+function zoomOut() {
+  if (zoom < 0.2) return
+  setZoom(zoom - 0.1)
+}
+
+function setZoom(value: number) {
+  zoom = value
+  imagesWrapper.style.transform = `scale(${zoom})`
+  statsZoom.innerHTML = Math.trunc(zoom * 100) + '%'
+  setVerticalSelectorPos(!!sliceX)
 }
