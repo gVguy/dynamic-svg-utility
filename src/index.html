@@ -8,7 +8,17 @@
   <body>
     <div id="main">
       <div id="textarea-container">
-        <textarea id="input">paste svg here</textarea>
+        <div id="transform-message">
+          <b>Transforms produce unexpected results.</b>
+          Looks like this svg makes use of transforms, meaning some elements' positions, scales and rotations may be manipulated outside of `d`, `x` and `width` attributes, processed by this utility.
+          You might get lucky and it'll work, but more likely it will output something unexpected.
+        </div>
+        <textarea id="input">
+paste svg code here
+
+or
+
+drop svg file anywhere on the page</textarea>
         <textarea id="output"></textarea>
       </div>
       <div id="image-container">
@@ -43,5 +53,6 @@
         </div>
       </div>
     </div>
+    <div id="drop-container">Drop it</div>
   </body>
 </html>

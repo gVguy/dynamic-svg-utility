@@ -5,6 +5,8 @@ const outputSvgWrapper: HTMLElement = document.querySelector('#output-svg-wrappe
 const verticalSelector: HTMLElement = document.querySelector('#vertical-selector')
 const main: HTMLElement = document.querySelector('#main')
 const imagesWrapper: HTMLElement = document.querySelector('#images-wrapper')
+const dropContainer: HTMLElement = document.querySelector('#drop-container')
+const transformsMessage: HTMLElement = document.querySelector('#transform-message')
 
 const targetWidthInput: HTMLInputElement = document.querySelector('#target-width')
 const resetButton: HTMLElement = document.querySelector('#reset-button')
@@ -16,6 +18,7 @@ const zoomOutButton: HTMLElement = document.querySelector('#zoom-out-button')
 let svg: SVGElement = null
 let svgWidth: number = null
 let svgHeight: number = null
+let svgSizeUnits: string = null
 let sliceX: number = null
 let targetWidth: string = null
 let numberTargetWidth: number = null
@@ -37,7 +40,8 @@ resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
 zoomInButton.addEventListener('click', zoomIn)
 zoomOutButton.addEventListener('click', zoomOut)
-document.addEventListener('drop', dropHandler)
+
+const READY_INSTRUCTION = 'specify width (number or variable name), set slice point and click process'
 
 function getSvgCommandLength(cmd: string) {
   const SVG_COMMAND_LENGTHS: { [key: string]: number} = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7 }
@@ -48,13 +52,14 @@ function inputHandler() {
   resetSlice()
   setOutput()
   setZoom(1)
+  handleTransformMessage()
   svgWrapper.innerHTML = input.value
   svg = svgWrapper.querySelector('svg')
   if (svg) {
     svgWidth = parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+width=")([\d.]+)/)?.[2]) || parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="[\d.]+\s[\d.]+\s)([\d.]+)/)?.[2])
     svgHeight = parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+height=")([\d.]+)/)?.[2]) || parseFloat(svgWrapper.innerHTML.match(/(<svg[^>]+viewBox="[\d.]+\s[\d.]+\s[\d.]+\s)([\d.]+)/)?.[2])
-    console.log(svgWidth, svgHeight)
-    setDimensions(svgWidth, svgHeight)
+    svgSizeUnits = svgWrapper.innerHTML.match(/(<svg[^>]+width=")[\d.]+(\w+)/)?.[2] || 'px'
+    setDimensions(svgWidth, svgHeight, svgSizeUnits)
     if (!svgWidth || !svgHeight) {
       svgWrapper.innerHTML = ''
       setOutput('invalid svg')
@@ -72,6 +77,7 @@ function inputHandler() {
       output = output.replace(new RegExp(`#${idValue}`, 'g'), `#${randomStr}`)
     })
     svgWrapper.innerHTML = output
+    setOutput(READY_INSTRUCTION)
   } else {
     svgWrapper.innerHTML = ''
     setDimensions()
@@ -79,9 +85,9 @@ function inputHandler() {
   }
 }
 
-function setDimensions(w: string | number = '', h: string | number = '') {
-  svgWrapper.style.width = w ? w + 'px' : ''
-  svgWrapper.style.height = h ? h + 'px' : ''
+function setDimensions(w: string | number = '', h: string | number = '', unit = 'px') {
+  svgWrapper.style.width = w ? w + unit : ''
+  svgWrapper.style.height = h ? h + unit : ''
   statsWidth.innerHTML = w + ''
   statsHeight.innerHTML = h + ''
 }
@@ -115,7 +121,7 @@ function resetSlice() {
   sliceX = null
   setVerticalSelectorPos(false)
   statsSlice.innerHTML = ''
-  setOutput()
+  setOutput(READY_INSTRUCTION)
 }
 
 function changeTheme() {
@@ -182,6 +188,9 @@ function processPath(d: string) {
 
   let absoluteX = 0
   let absoluteY = 0
+  let pathStartX = 0
+  let pathStartY = 0
+  let wasLastCommandZ = true
 
   for (let allCommandsIdx = 0; allCommandsIdx < allCommands.length; allCommandsIdx++) {
     const command = allCommands[allCommandsIdx]
@@ -189,7 +198,7 @@ function processPath(d: string) {
     const match = command.match(regex)
     let commandKey = match[1]
     const commandValue = match[2]?.trim()
-    const valueSplit = commandValue?.split(/[\s,]|(?=-)/).filter(v => v) || []
+    const valueSplit = commandValue?.split(/[\s,]|(?<!e)(?=-)/).filter(v => v) || []
     let processedValues = []
 
     // split long joined commands into single ones
@@ -204,6 +213,9 @@ function processPath(d: string) {
       allCommands.splice(allCommandsIdx + 1, 0, joinedLeftover)
     }
 
+    console.log('------')
+    console.log('command', commandKey, valueSplit.join(' '))
+
     if (/[mlhvcsqta]/.test(commandKey)) {
       // relative command - replace with absolute
       valueSplit.forEach((val, i) => {
@@ -214,8 +226,10 @@ function processPath(d: string) {
           // y
           valueSplit[i] = (Number(val) + absoluteY) + ''
         }
+        // console.log(val, '->', valueSplit[i])
       })
       commandKey = commandKey.toUpperCase()
+      console.log('absolute', commandKey, valueSplit.join(' '), wasLastCommandZ)
     }
 
     // update absoluteX & absoluteY
@@ -226,6 +240,22 @@ function processPath(d: string) {
     } else if (valueSplit.length > 1) {
       absoluteX = Number(valueSplit[valueSplit.length - 2])
       absoluteY = Number(valueSplit[valueSplit.length - 1])
+    }
+
+    // if command is z reset absolute positions to path start
+    if (commandKey == 'Z' || commandKey == 'z') {
+      absoluteX = pathStartX
+      absoluteY = pathStartY
+      wasLastCommandZ = true
+      console.log('absolute reset to path start', absoluteX, absoluteY)
+    } else if (wasLastCommandZ) {
+      // if last command was z, remember this point as pathstart
+      wasLastCommandZ = false
+      if (commandKey == 'M') {
+        pathStartX = absoluteX
+        pathStartY = absoluteY
+        console.log('path start set', pathStartX, pathStartY)
+      }
     }
 
     if (/[VvZz]/.test(commandKey)) {
@@ -281,8 +311,8 @@ function setOutput(html = '') {
 
   function displayOutputSvg(svg: string, width: number, height: number) {
     outputSvgWrapper.innerHTML = svg
-    outputSvgWrapper.style.width = width + 'px'
-    outputSvgWrapper.style.height = height + 'px'
+    outputSvgWrapper.style.width = width + svgSizeUnits
+    outputSvgWrapper.style.height = height + svgSizeUnits
   }
 
   if (html.includes('<svg')) {
@@ -307,8 +337,15 @@ function setOutput(html = '') {
   }
 }
 
+// drop files
+document.addEventListener('drop', dropHandler)
+document.addEventListener('dragenter', dragEnterHandler)
+document.addEventListener('dragleave', dragLeaveHandler)
+'dragenter dragstart dragend dragleave dragover drag drop'.split(' ').forEach(eventName => {
+  document.addEventListener(eventName, (e) => e.preventDefault())
+})
 function dropHandler(e: DragEvent) {
-  e.preventDefault()
+  // e.preventDefault()
   const file = e.dataTransfer.files[0]
   const reader = new FileReader()
   reader.readAsText(file)
@@ -316,7 +353,17 @@ function dropHandler(e: DragEvent) {
     input.value = reader.result as string
     inputHandler()
   }
+  dropContainer.style.display = 'none'
 }
+function dragEnterHandler(e: DragEvent) {
+  dropContainer.style.display = 'flex'
+}
+function dragLeaveHandler(e: DragEvent) {
+  if (e.target !== dropContainer) return
+  dropContainer.style.display = 'none'
+  // setTimeout(() => dropContainer.style.display = 'none', 0)
+}
+
 
 function zoomIn() {
   setZoom(zoom + 0.1)
@@ -332,4 +379,13 @@ function setZoom(value: number) {
   imagesWrapper.style.transform = `scale(${zoom})`
   statsZoom.innerHTML = Math.trunc(zoom * 100) + '%'
   setVerticalSelectorPos(!!sliceX)
+}
+
+// transform message
+function handleTransformMessage() {
+  if (input.value.includes('transform="')) {
+    transformsMessage.style.display = 'block'
+  } else {
+    transformsMessage.style.display = 'none'
+  }
 }
