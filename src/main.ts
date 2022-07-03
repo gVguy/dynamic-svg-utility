@@ -3,28 +3,37 @@ const output: HTMLTextAreaElement = document.querySelector('#output')
 const svgWrapper: HTMLElement = document.querySelector('#svg-wrapper')
 const outputSvgWrapper: HTMLElement = document.querySelector('#output-svg-wrapper')
 const verticalSelector: HTMLElement = document.querySelector('#vertical-selector')
+const horizontalSelector: HTMLElement = document.querySelector('#horizontal-selector')
 const main: HTMLElement = document.querySelector('#main')
 const imagesWrapper: HTMLElement = document.querySelector('#images-wrapper')
 const dropContainer: HTMLElement = document.querySelector('#drop-container')
 const transformsMessage: HTMLElement = document.querySelector('#transform-message')
 
 const targetWidthInput: HTMLInputElement = document.querySelector('#target-width')
+const targetHeightInput: HTMLInputElement = document.querySelector('#target-height')
 const resetButton: HTMLElement = document.querySelector('#reset-button')
 const processButton: HTMLElement = document.querySelector('#process-button')
 const themeButton: HTMLElement = document.querySelector('#theme-button')
 const zoomInButton: HTMLElement = document.querySelector('#zoom-in-button')
 const zoomOutButton: HTMLElement = document.querySelector('#zoom-out-button')
+const xCheckbox: HTMLInputElement = document.querySelector('#x-checkbox')
+const yCheckbox: HTMLInputElement = document.querySelector('#y-checkbox')
 
 let svg: SVGElement = null
 let svgWidth: number = null
 let svgHeight: number = null
 let svgSizeUnits: string = null
 let sliceX: number = null
+let sliceY: number = null
 let targetWidth: string = null
+let targetHeight: string = null
 let numberTargetWidth: number = null
+let numberTargetHeight: number = null
 let theme = '#060606'
 let zoom = 1
 let outputInterval: number = null
+let isX = true
+let isY = true
 
 const statsWidth: HTMLElement = document.querySelector('#stats-width')
 const statsHeight: HTMLElement = document.querySelector('#stats-height')
@@ -35,11 +44,13 @@ input.addEventListener('input', inputHandler)
 svgWrapper.addEventListener('mousemove', mouseMoveHandler)
 svgWrapper.addEventListener('mouseleave', svgLeaveHandler)
 svgWrapper.addEventListener('click', svgClickHandler)
-processButton.addEventListener('click', () => processSvg(targetWidthInput.value))
+processButton.addEventListener('click', () => processSvg(targetWidthInput.value, targetHeightInput.value))
 resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
 zoomInButton.addEventListener('click', zoomIn)
 zoomOutButton.addEventListener('click', zoomOut)
+xCheckbox.addEventListener('change', toggleX)
+yCheckbox.addEventListener('change', toggleY)
 
 const READY_INSTRUCTION = 'specify width (number or variable name), set slice point and click process'
 
@@ -88,39 +99,59 @@ function inputHandler() {
 function setDimensions(w: string | number = '', h: string | number = '', unit = 'px') {
   svgWrapper.style.width = w ? w + unit : ''
   svgWrapper.style.height = h ? h + unit : ''
-  statsWidth.innerHTML = w + ''
-  statsHeight.innerHTML = h + ''
+  statsWidth.innerHTML = w ? w + '' : 'null'
+  statsHeight.innerHTML = h ? h + '' : 'null'
 }
 
 function mouseMoveHandler(e: MouseEvent) {
-  if (!svg || sliceX) return
-  setVerticalSelectorPos(true, e)
+  if (!svg || isX && sliceX || isY && sliceY) return
+  if (isX) setVerticalSelectorPos(true, e)
+  if (isY) setHorizontalSelectorPos(true, e)
 }
 
 function setVerticalSelectorPos(show: boolean, e?: MouseEvent) {
   const offsetX = e?.offsetX ?? sliceX
+  horizontalSelector.style.opacity = show ? '1' : '0'
+  horizontalSelector.style.height = svgWrapper.clientHeight + 'px'
+  horizontalSelector.style.top = svgWrapper.offsetTop + 'px'
+  horizontalSelector.style.left = svgWrapper.offsetLeft + offsetX + 'px'
+  horizontalSelector.style.width = 1 / zoom + 'px'
+}
+
+function setHorizontalSelectorPos(show: boolean, e?: MouseEvent) {
+  const offsetY = e?.offsetY ?? sliceY
   verticalSelector.style.opacity = show ? '1' : '0'
-  verticalSelector.style.height = svgWrapper.clientHeight + 'px'
-  verticalSelector.style.top = svgWrapper.offsetTop + 'px'
-  verticalSelector.style.left = svgWrapper.offsetLeft + offsetX + 'px'
-  verticalSelector.style.width = 1 / zoom + 'px'
+  verticalSelector.style.height = 1 / zoom + 'px'
+  verticalSelector.style.top = svgWrapper.offsetTop + offsetY + 'px'
+  verticalSelector.style.left = svgWrapper.offsetLeft + 'px'
+  verticalSelector.style.width = svgWrapper.clientWidth + 'px'
 }
 
 function svgLeaveHandler() {
-  if (sliceX) return
+  if (isX && sliceX || isY && sliceY) return
   setVerticalSelectorPos(false)
+  setHorizontalSelectorPos(false)
 }
 
 function svgClickHandler(e: MouseEvent) {
   if (!svg) return
-  sliceX = e.offsetX
-  statsSlice.innerHTML = sliceX + ''
+  if (isX) sliceX = e.offsetX
+  if (isY) sliceY = e.offsetY
+  setSliceStats()
+}
+
+function setSliceStats() {
+  const x = sliceX ?? 'null'
+  const y = sliceY ?? 'null'
+  statsSlice.innerHTML = x + ' ' + y
 }
 
 function resetSlice() {
   sliceX = null
+  sliceY = null
   setVerticalSelectorPos(false)
-  statsSlice.innerHTML = ''
+  setHorizontalSelectorPos(false)
+  setSliceStats()
   setOutput(READY_INSTRUCTION)
 }
 
@@ -129,15 +160,20 @@ function changeTheme() {
   main.style.background = theme
 }
 
-function p(str: string, condition = !numberTargetWidth) {
+function p(str: string, condition: boolean) {
   return condition ? str : ''
 }
 
-function processSvg(tw: string | number, withOutput = true) {
-  targetWidth = tw + ''
+function processSvg(tw: string | number, th: string | number, withOutput = true) {
+  targetWidth = (isX ? tw : svgWidth) + ''
+  targetHeight = (isY ? th : svgHeight) + ''
   numberTargetWidth = Number(targetWidth)
-  if (!svg || !sliceX) return
+  numberTargetHeight = Number(targetHeight)
+
+  if (!svg || isX && !sliceX || isY && !sliceY) return
+
   let output = input.value
+
   // paths
   let regex = /\sd="[^"]+"/gm
   const allDs = output.match(regex)
@@ -145,36 +181,88 @@ function processSvg(tw: string | number, withOutput = true) {
     const processedD = processPath(d)
     output = output.replace(d, processedD)
   })
-  // widths
-  regex = /\swidth="([\d.]+)"/gm
-  const allWidths = output.match(regex)
-  allWidths?.forEach(w => {
+
+  // widths & heights
+  const processWidthOrHeight = (widthOrHeight: 'width' | 'height', processMethod: (n: string, offset?: number) => void) => {
+    let regex = new RegExp(`(<.+\\s)${widthOrHeight}="[\\d.]+("[^>]+>)`, 'gm')
+    const allElementsWithWidthOrHeight = output.match(regex)
     regex = new RegExp(regex, '')
-    const width = w.match(regex)[1]
-    const processedWidthNumber = processNumber(width)
-    const isDynamic = typeof processedWidthNumber == 'string'
-    const processedWidth = ` ${p(':', isDynamic)}width="${processedWidthNumber}"`
-    output = output.replace(w, processedWidth)
-  })
-  // x's
-  regex = /\sx(\d)?="([\d.]+)"/gm
-  const allXs = output.match(regex)
-  allXs?.forEach(x => {
+    const numberRegex = new RegExp(`\\s${widthOrHeight}="([\\d.]+)"`, '')
+    const offsetAxis = widthOrHeight == 'width' ? 'x' : 'y'
+    const offsetRegex = new RegExp(`\\s${offsetAxis}="([\\d.]+)"`)
+    allElementsWithWidthOrHeight?.forEach(el => {
+      const elBefore = el.match(regex)[1]
+      const elAfter = el.match(regex)[2]
+      const matchNumber = el.match(numberRegex)[1]
+      const matchOffsetNumber = el.match(offsetRegex)?.[1] || 0
+      const processedMatchNumber = processMethod(matchNumber, Number(matchOffsetNumber))
+      const isDynamic = typeof processedMatchNumber == 'string'
+      const processedEl = elBefore + p(':', isDynamic) + widthOrHeight + '="' + processedMatchNumber + elAfter
+      output = output.replace(el, processedEl)
+    })
+  }
+  processWidthOrHeight('width', processNumberX)
+  processWidthOrHeight('height', processNumberY)
+
+  // x's & y's
+  const processXorY = (xOrY: 'x' | 'y', processMethod: (n: string, offset?: number) => void) => {
+    let regex = new RegExp(`\\s(c?)${xOrY}(\\d)?="(-?[\\d.]+)"`, 'gm')
+    const allMatches = output.match(regex)
     regex = new RegExp(regex, '')
-    const match = x.match(regex)
-    const xIdx = match[1] ?? ''
-    const value = match[2]
-    const processedValue = processNumber(value)
-    const isDynamic = typeof processedValue == 'string'
-    const processedX = ` ${p(':', isDynamic)}x${xIdx}="${processedValue}"`
-    output = output.replace(x, processedX)
+    allMatches?.forEach(m => {
+      const match = m.match(regex)
+      const mPrefix = match[1] ?? ''
+      const mIdx = match[2] ?? ''
+      const value = match[3]
+      const processedValue = processMethod(value)
+      const isDynamic = typeof processedValue == 'string'
+      const processedMatch = ` ${p(':', isDynamic)}${mPrefix}${xOrY}${mIdx}="${processedValue}"`
+      output = output.replace(m, processedMatch)
+    })
+  }
+  processXorY('x', processNumberX)
+  processXorY('y', processNumberY)
+
+  // translations
+  regex = /(\w+="[^"]*translate([XY])?\()(-?[\d.]+)((px)?,?\s?)?(-?[\d.]+)?((px)?\))/gm
+  const allTranslations = output.match(regex)
+  regex = new RegExp(regex, '')
+  allTranslations?.forEach(m => {
+    const match = m.match(regex)
+    const before = match[1]
+    const xOrY = match[2] ?? ''
+    const firstNumber = match[3]
+    const betweenNumbers = match[4] ?? ''
+    const secondNumber = match[6]
+    const after = match[7] ?? ''
+    let processedFirstNumber: string | number = ''
+    let processedSecondNumber: string | number = ''
+    if (firstNumber) {
+      if (xOrY != 'Y') processedFirstNumber = processNumberX(firstNumber)
+      else processedFirstNumber = processNumberY(firstNumber)
+    }
+    if (secondNumber) {
+      processedSecondNumber = processNumberY(secondNumber)
+    }
+    const isDynamic = processedFirstNumber && typeof processedFirstNumber == 'string' || processedSecondNumber && typeof processedSecondNumber == 'string'
+    const processedMatch = p(':', isDynamic) + before + xOrY + processedFirstNumber + betweenNumbers + processedSecondNumber + after
+    console.log('processing translation', match, '->', processedMatch)
+    output = output.replace(m, processedMatch)
   })
+
   // viewbox
-  output = output.replace(/(viewBox="[\d.]+\s[\d.]+\s)[\d.]+(\s[\d.]+")/, `${p(':')}$1${ p('${') + targetWidth + p('}')}$2`)
+  const outViewboxDimensions =
+    p('${', !numberTargetWidth) + targetWidth + p('}', !numberTargetWidth) + ' ' +
+    p('${', !numberTargetHeight) + targetHeight + p('}', !numberTargetHeight)
+  regex = /(viewBox="[\d.]+\s[\d.]+\s)[\d.]+\s[\d.]+(")/
+  const isVbDynamic = outViewboxDimensions.includes('${')
+  output = output.replace(regex, `${p(':', isVbDynamic)}$1${outViewboxDimensions}$2`)
+
+  // all processing done, handle output
   if (withOutput) {
     setOutput(output)
-    setVerticalSelectorPos(true)
   }
+  
   return output
 }
 
@@ -243,7 +331,7 @@ function processPath(d: string) {
     }
 
     // if command is z reset absolute positions to path start
-    if (commandKey == 'Z' || commandKey == 'z') {
+    if (/[zZ]/.test(commandKey)) {
       absoluteX = pathStartX
       absoluteY = pathStartY
       wasLastCommandZ = true
@@ -258,27 +346,28 @@ function processPath(d: string) {
       }
     }
 
-    if (/[VvZz]/.test(commandKey)) {
-      // doesn't need processing
-      processedValues = valueSplit
-    } else {
-      // needs processing
+    // process command values individually
+    if (!/[Zz]/.test(commandKey)) {
       let counter = 0
       while (valueSplit.length) {
-        counter++
         let n = valueSplit.shift()
-        if (counter % 2 == 1) {
-          // x
-          const processedN = processNumber(n)
+        const setN = (processedN: string | number) => {
           if (typeof processedN == 'string') {
             n = '${' + processedN + '}'
           } else {
             n = processedN + ''
           }
+        }
+        if (commandKey !== 'V' && counter % 2 == 0) {
+          // x
+          setN(processNumberX(n))
         } else {
           // y
+          setN(processNumberY(n))
         }
+        
         processedValues.push(n)
+        counter++
       }
     }
     outputPath += commandKey + ' ' + processedValues.join(' ') + ' '
@@ -290,18 +379,27 @@ function processPath(d: string) {
   return outputPath
 }
 
-function processNumber(n: string) {
+function processNumberX(n: string, offset = 0) {
   const float = parseFloat(n)
-  if (float > sliceX) {
-    const distanceFromRight = svgWidth - float
-    const dispanceFromRightFixed = Number(distanceFromRight.toFixed(2))
-    if (numberTargetWidth) {
-      return Number(numberTargetWidth - dispanceFromRightFixed)
-    } else {
-      return targetWidth + (dispanceFromRightFixed ? ' - ' + dispanceFromRightFixed : '')
-    }
+  if (!isX || float + offset < sliceX) return Number(float.toFixed(2))
+  const distanceFromRight = svgWidth - float
+  const dispanceFromRightFixed = Number(distanceFromRight.toFixed(2))
+  if (numberTargetWidth) {
+    return Number(numberTargetWidth - dispanceFromRightFixed)
   } else {
-    return Number(float.toFixed(2))
+    return targetWidth + (dispanceFromRightFixed ? ' - ' + dispanceFromRightFixed : '')
+  }
+}
+
+function processNumberY(n: string, offset = 0) {
+  const float = parseFloat(n)
+  if (!isY || float + offset < sliceY) return Number(float.toFixed(2))
+  const distanceFromBottom = svgHeight - float
+  const dispanceFromBottomFixed = Number(distanceFromBottom.toFixed(2))
+  if (numberTargetHeight) {
+    return Number(numberTargetHeight - dispanceFromBottomFixed)
+  } else {
+    return targetHeight + (dispanceFromBottomFixed ? ' - ' + dispanceFromBottomFixed : '')
   }
 }
 
@@ -315,25 +413,27 @@ function setOutput(html = '') {
     outputSvgWrapper.style.height = height + svgSizeUnits
   }
 
-  if (html.includes('<svg')) {
-    if (numberTargetWidth) {
-      displayOutputSvg(html, numberTargetWidth, svgHeight)
-    } else {
-      let addStep = 25
-      let additionalWidth = 0
-      outputInterval = window.setInterval(() => {
-        if (addStep > 0 && additionalWidth > 199) addStep = -25
-        else if (addStep < 0 && additionalWidth < 1) addStep = 25
-        additionalWidth += addStep
-        const resultWidth = svgWidth + additionalWidth
-        const svg = processSvg(resultWidth, false)
-        displayOutputSvg(svg, resultWidth, svgHeight)
-      }, 500)
-    }
-  } else {
+  if (!html.includes('<svg')) {
     outputSvgWrapper.innerHTML = ''
     outputSvgWrapper.style.width = ''
     outputSvgWrapper.style.height = ''
+    return
+  }
+
+  if (isX && !numberTargetWidth || isY && !numberTargetHeight) {
+    let addStep = 25
+    let additionalWidth = 0
+    outputInterval = window.setInterval(() => {
+      if (addStep > 0 && additionalWidth > 199) addStep = -25
+      else if (addStep < 0 && additionalWidth < 1) addStep = 25
+      additionalWidth += addStep
+      const resultWidth = svgWidth + additionalWidth
+      const resultHeight = svgHeight + additionalWidth
+      const svg = processSvg(resultWidth, resultHeight, false)
+      displayOutputSvg(svg, resultWidth, resultHeight)
+    }, 500)
+  } else {
+    displayOutputSvg(html, numberTargetWidth, numberTargetHeight)
   }
 }
 
@@ -383,9 +483,23 @@ function setZoom(value: number) {
 
 // transform message
 function handleTransformMessage() {
-  if (input.value.includes('transform="')) {
+  if (input.value.includes('transform')) {
     transformsMessage.style.display = 'block'
   } else {
     transformsMessage.style.display = 'none'
   }
+}
+
+// toggle x and y
+function toggleX() {
+  sliceX = null
+  setVerticalSelectorPos(false)
+  isX = !isX
+  setSliceStats()
+}
+function toggleY() {
+  sliceY = null
+  setHorizontalSelectorPos(false)
+  isY = !isY
+  setSliceStats()
 }

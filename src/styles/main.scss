@@ -18,7 +18,7 @@ body {
       .tooltip {
          visibility: hidden;
          position: absolute;
-         top: 100%;
+         top: calc(100% + 10px);
          left: 50%;
          transform: translateX(-50%);
          background: black;
@@ -37,6 +37,9 @@ body {
             left: 50%;
             top: -6px;
             position: absolute;
+         }
+         p {
+            margin: 5px;
          }
       }
    }
@@ -91,9 +94,9 @@ body {
             flex-direction: column;
             position: relative;
 
-            #vertical-selector {
+            #vertical-selector,
+            #horizontal-selector {
                position: absolute;
-               width: 1px;
                background: red;
                opacity: 0;
                pointer-events: none;
@@ -122,9 +125,14 @@ body {
          display: flex;
          justify-content: center;
          align-items: center;
+         color: white;
 
-         * {
+         &>* {
             margin: 5px;
+         }
+         
+         .text-input {
+            width: 10ch;
          }
       }
 
@@ -133,6 +141,10 @@ body {
          top: initial;
          bottom: 0;
          color: white;
+
+         span {
+            margin-right: 15px;
+         }
       }
    }
 }
