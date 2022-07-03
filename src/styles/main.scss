@@ -67,6 +67,27 @@ body {
          background: #1d1e22;
          color: white;
          padding: 10px;
+         resize: none;
+      }
+
+      #tabs {
+         flex: 0 0 25px;
+         display: flex;
+         justify-items: flex-start;
+         align-items: stretch;
+         .output-type-tab {
+            background: white;
+            opacity: 0.5;
+            padding: 5px 10px;
+            cursor: pointer;
+            &.selected {
+               opacity: 1;
+               cursor: default;
+            }
+            &:not(.selected):hover {
+               opacity: 0.8;
+            }
+         }
       }
    }
 

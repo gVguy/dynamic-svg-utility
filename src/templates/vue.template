@@ -1,0 +1,15 @@
+<template>
+  %template%
+</template>
+
+<script setup lang="ts">
+
+withDefaults(defineProps<{
+  %width_var%?: number
+  %height_var%?: number
+}>(), {
+  %width_var%: %initial_width%,
+  %height_var%: %initial_height%
+})
+
+</script>

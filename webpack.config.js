@@ -39,9 +39,13 @@ module.exports = env => ({
             type: 'asset/resource'
          },
          {
-            test: /\.ts?$/,
+            test: /\.ts$/,
             use: 'ts-loader',
             exclude: /node_modules/
+         },
+         {
+            test: /\.template$/,
+            type: 'asset/source'
          }
       ]
    },

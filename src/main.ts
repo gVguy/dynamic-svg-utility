@@ -1,3 +1,6 @@
+const vueRtTemplate = require('./templates/vue_rt.template')
+const vueTemplate = require('./templates/vue.template')
+
 const input: HTMLTextAreaElement = document.querySelector('#input')
 const output: HTMLTextAreaElement = document.querySelector('#output')
 const svgWrapper: HTMLElement = document.querySelector('#svg-wrapper')
@@ -18,6 +21,7 @@ const zoomInButton: HTMLElement = document.querySelector('#zoom-in-button')
 const zoomOutButton: HTMLElement = document.querySelector('#zoom-out-button')
 const xCheckbox: HTMLInputElement = document.querySelector('#x-checkbox')
 const yCheckbox: HTMLInputElement = document.querySelector('#y-checkbox')
+const tabs: NodeListOf<HTMLElement> = document.querySelectorAll('.output-type-tab')
 
 let svg: SVGElement = null
 let svgWidth: number = null
@@ -34,6 +38,12 @@ let zoom = 1
 let outputInterval: number = null
 let isX = true
 let isY = true
+let outputType: OutputType = 'template'
+const outputs: { [key in OutputType]: string } = {
+  template: '',
+  vue: '',
+  vue_rt: ''
+}
 
 const statsWidth: HTMLElement = document.querySelector('#stats-width')
 const statsHeight: HTMLElement = document.querySelector('#stats-height')
@@ -44,13 +54,14 @@ input.addEventListener('input', inputHandler)
 svgWrapper.addEventListener('mousemove', mouseMoveHandler)
 svgWrapper.addEventListener('mouseleave', svgLeaveHandler)
 svgWrapper.addEventListener('click', svgClickHandler)
-processButton.addEventListener('click', () => processSvg(targetWidthInput.value, targetHeightInput.value))
+processButton.addEventListener('click', processClickHandler)
 resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
 zoomInButton.addEventListener('click', zoomIn)
 zoomOutButton.addEventListener('click', zoomOut)
 xCheckbox.addEventListener('change', toggleX)
 yCheckbox.addEventListener('change', toggleY)
+tabs.forEach(tab => tab.addEventListener('click', tabClickHandler))
 
 const READY_INSTRUCTION = 'specify width (number or variable name), set slice point and click process'
 
@@ -169,8 +180,6 @@ function processSvg(tw: string | number, th: string | number, withOutput = true)
   targetHeight = (isY ? th : svgHeight) + ''
   numberTargetWidth = Number(targetWidth)
   numberTargetHeight = Number(targetHeight)
-
-  if (!svg || isX && !sliceX || isY && !sliceY) return
 
   let output = input.value
 
@@ -385,7 +394,7 @@ function processNumberX(n: string, offset = 0) {
   const distanceFromRight = svgWidth - float
   const dispanceFromRightFixed = Number(distanceFromRight.toFixed(2))
   if (numberTargetWidth) {
-    return Number(numberTargetWidth - dispanceFromRightFixed)
+    return Number((numberTargetWidth - dispanceFromRightFixed).toFixed(2))
   } else {
     return targetWidth + (dispanceFromRightFixed ? ' - ' + dispanceFromRightFixed : '')
   }
@@ -395,16 +404,20 @@ function processNumberY(n: string, offset = 0) {
   const float = parseFloat(n)
   if (!isY || float + offset < sliceY) return Number(float.toFixed(2))
   const distanceFromBottom = svgHeight - float
-  const dispanceFromBottomFixed = Number(distanceFromBottom.toFixed(2))
+  const distanceFromBottomFixed = Number(distanceFromBottom.toFixed(2))
   if (numberTargetHeight) {
-    return Number(numberTargetHeight - dispanceFromBottomFixed)
+    return Number((numberTargetHeight - distanceFromBottomFixed).toFixed(2))
   } else {
-    return targetHeight + (dispanceFromBottomFixed ? ' - ' + dispanceFromBottomFixed : '')
+    return targetHeight + (distanceFromBottomFixed ? ' - ' + distanceFromBottomFixed : '')
   }
 }
 
 function setOutput(html = '') {
-  output.innerHTML = html
+  Object.keys(outputs).forEach(o => {
+    const outputType = o as OutputType
+    outputs[outputType] = applyTemplate(html, outputType)
+  })
+  output.innerHTML = outputs[outputType]
   clearInterval(outputInterval)
 
   function displayOutputSvg(svg: string, width: number, height: number) {
@@ -422,13 +435,15 @@ function setOutput(html = '') {
 
   if (isX && !numberTargetWidth || isY && !numberTargetHeight) {
     let addStep = 25
-    let additionalWidth = 0
+    let additionalSize = 0
+    const wasNumberTargetWidth = numberTargetWidth
+    const wasNumberTargetHeight = numberTargetHeight
     outputInterval = window.setInterval(() => {
-      if (addStep > 0 && additionalWidth > 199) addStep = -25
-      else if (addStep < 0 && additionalWidth < 1) addStep = 25
-      additionalWidth += addStep
-      const resultWidth = svgWidth + additionalWidth
-      const resultHeight = svgHeight + additionalWidth
+      if (addStep > 0 && additionalSize > 199) addStep = -25
+      else if (addStep < 0 && additionalSize < 1) addStep = 25
+      additionalSize += addStep
+      const resultWidth = !wasNumberTargetWidth ? svgWidth + additionalSize : numberTargetWidth
+      const resultHeight = !wasNumberTargetHeight ? svgHeight + additionalSize : numberTargetHeight
       const svg = processSvg(resultWidth, resultHeight, false)
       displayOutputSvg(svg, resultWidth, resultHeight)
     }, 500)
@@ -436,6 +451,32 @@ function setOutput(html = '') {
     displayOutputSvg(html, numberTargetWidth, numberTargetHeight)
   }
 }
+function applyTemplate(html: string, type: OutputType) {
+  if (type == 'template' || !html.includes('<svg')) return html
+  let processedTemplate = ''
+  if (
+    isX && isY && numberTargetWidth && numberTargetHeight ||
+    isX && !isY && numberTargetWidth ||
+    !isX && isY && numberTargetHeight
+  ) {
+    setOutputFormat('template')
+    return `this output format is not supported for static SVGs
+    
+to generate a dynamic SVG, try setting target width and/or height to a variable name instead of a number, eg \`width\` and \`height\``
+  }
+  if (type == 'vue') processedTemplate = vueTemplate
+  else if (type == 'vue_rt') processedTemplate = vueRtTemplate
+  if (!isX || isX && numberTargetWidth) processedTemplate = processedTemplate.replace(/,?\n.+%width_var%.+/g, '')
+  if (!isY || isY && numberTargetHeight) processedTemplate = processedTemplate.replace(/,?\n.+%height_var%.+/g, '')
+  processedTemplate = processedTemplate
+    .replace(/%template%/g, html.replace(/\n/g, '\n  ') + '')
+    .replace(/%width_var%/g, targetWidth)
+    .replace(/%height_var%/g, targetHeight)
+    .replace(/%initial_width%/g, svgWidth + '')
+    .replace(/%initial_height%/g, svgHeight + '')
+  return processedTemplate
+}
+type OutputType = 'vue' | 'vue_rt' | 'template'
 
 // drop files
 document.addEventListener('drop', dropHandler)
@@ -502,4 +543,28 @@ function toggleY() {
   setHorizontalSelectorPos(false)
   isY = !isY
   setSliceStats()
+}
+
+// output format tabs
+function tabClickHandler(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const selectedType = target.dataset.type as OutputType
+  if (outputType == selectedType) return
+  setOutputFormat(selectedType)
+}
+function setOutputFormat(type: OutputType) {
+  outputType = type
+  tabs.forEach(tab => {
+    tab.classList.remove('selected')
+    if (tab.dataset.type == type) tab.classList.add('selected')
+  })
+  output.innerHTML = outputs[outputType]
+}
+
+// process click handler
+function processClickHandler() {
+  if (!svg) return alert('no input svg')
+  if (isX && !targetWidthInput.value || isY && !targetHeightInput.value) return alert('you need to set target size for selected axis')
+  if (isX && !sliceX || isY && !sliceY) return alert('you need to set slice point (use mouse)')
+  processSvg(targetWidthInput.value, targetHeightInput.value)
 }
