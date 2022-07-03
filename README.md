@@ -6,17 +6,17 @@ Rewrite your SVG's dimensions, paths and coordinates for responsive implementati
 
 ## What it does
 
-- rewrites SVG's `width` and `viewBox` attributes to match **target width**
-- rewrites all SVG's `d` & `x` attributes to position them in relation to new width
-- if a *numeric* target width is provided, transforms the SVG statically
-- if a *string* target value is provided, treats it as a variable name, and outputs Vue.js compatible code of an SVG generated dynamically based on varible value
+- rewrites all SVG's `width`, `height` and `viewBox` attributes to match **target size**
+- rewrites all SVG's `d`, `x`, & `y` attributes to position them in relation to new size
+- if a *numeric* target size is provided, transforms the SVG statically
+- if a *string* target size is provided, treats it as a variable name, and outputs Vue.js compatible code of an SVG generated dynamically based on varible value
 
 ## How to use
 
 - paste your initial SVG code into the upper textarea
 - your SVG should appear on the right
 - use mouse to set slice position
-- enter the desired target width into the input next to the process button
+- enter the desired target width &/or height into the inputs next to the process button
 - click process
 - the output code should appear inside the lower textarea
 
