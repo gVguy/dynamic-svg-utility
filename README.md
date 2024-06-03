@@ -52,7 +52,7 @@ Now lets run it again with the same input, but this time use a variable name ins
 
 ### Output
 ```xml
-<svg :width="myDynamicWidth" height="100" :viewBox="0 0 ${myDynamicWidth} 100">
+<svg :width="myDynamicWidth" height="100" :viewBox="`0 0 ${myDynamicWidth} 100`">
   <rect x="5" y="5" :width="myDynamicWidth - 10" height="90" />
   <path :d="`M 10 10 V 90 H ${myDynamicWidth - 10} Z`" fill="pink" />
   <path :d="`M 10 10 H ${myDynamicWidth - 10} V 90 Z`" fill="gold" />
