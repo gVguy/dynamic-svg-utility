@@ -38,29 +38,39 @@ drop svg file anywhere on the page</textarea>
           </div>
         </div>
         <div id="controls">
-          <button id="reset-button">reset</button>
-          <div id="target-width-wrapper" class="tooltip-wrapper">
-            <input id="target-width" class="text-input" placeholder="target width" value="width" />
-            <div class="tooltip">
-              <p>string values are treated as variables and produce dynamic vue.js templates</p>
-              <p>numeric values produce svg with a static width</p>
+          <fieldset>
+            <legend>slice position</legend>
+            <button id="reset-button">reset slice</button>
+            <input type="checkbox" id="x-checkbox" checked>
+            <label for="x-checkbox">X</label>
+            <input type="checkbox" id="y-checkbox" checked>
+            <label for="x-checkbox">Y</label>
+          </fieldset>
+          <fieldset>
+            <legend>target size</legend>
+            <div id="target-width-wrapper" class="tooltip-wrapper">
+              <input id="target-width" class="text-input" placeholder="target width" value="width" />
+              <div class="tooltip">
+                <p>string values are treated as variables and produce dynamic templates</p>
+                <p>numeric values produce svg with a static width</p>
+              </div>
             </div>
-          </div>
-          <div id="target-height-wrapper" class="tooltip-wrapper">
-            <input id="target-height" class="text-input" placeholder="target height" value="height" />
-            <div class="tooltip">
-              <p>string values are treated as variables and produce dynamic vue.js templates</p>
-              <p>numeric values produce svg with a static height</p>
+            <div id="target-height-wrapper" class="tooltip-wrapper">
+              <input id="target-height" class="text-input" placeholder="target height" value="height" />
+              <div class="tooltip">
+                <p>string values are treated as variables and produce dynamic templates</p>
+                <p>numeric values produce svg with a static height</p>
+              </div>
             </div>
-          </div>
+          </fieldset>
           <button id="process-button">process</button>
-          <input type="checkbox" id="x-checkbox" checked>
-          <label for="x-checkbox">X</label>
-          <input type="checkbox" id="y-checkbox" checked>
-          <label for="x-checkbox">Y</label>
+          <fieldset>
+            <legend>zoom</legend>
+            <button id="zoom-in-button">+</button>
+            <button id="zoom-out-button">-</button>
+            <button id="zoom-reset-button">100%</button>
+          </fieldset>
           <button id="theme-button">theme</button>
-          <button id="zoom-in-button">+</button>
-          <button id="zoom-out-button">-</button>
         </div>
         <div id="stats">
           width: <span id="stats-width">null</span>

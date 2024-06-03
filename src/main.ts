@@ -1,5 +1,6 @@
 const vueRtTemplate = require('./templates/vue_rt.template')
 const vueTemplate = require('./templates/vue.template')
+const vueNoPropsTemplate = require('./templates/vue_noprops.template')
 
 const input: HTMLTextAreaElement = document.querySelector('#input')
 const output: HTMLTextAreaElement = document.querySelector('#output')
@@ -19,6 +20,7 @@ const processButton: HTMLElement = document.querySelector('#process-button')
 const themeButton: HTMLElement = document.querySelector('#theme-button')
 const zoomInButton: HTMLElement = document.querySelector('#zoom-in-button')
 const zoomOutButton: HTMLElement = document.querySelector('#zoom-out-button')
+const zoomResetButton: HTMLElement = document.querySelector('#zoom-reset-button')
 const xCheckbox: HTMLInputElement = document.querySelector('#x-checkbox')
 const yCheckbox: HTMLInputElement = document.querySelector('#y-checkbox')
 const tabs: NodeListOf<HTMLElement> = document.querySelectorAll('.output-type-tab')
@@ -59,6 +61,7 @@ resetButton.addEventListener('click', resetSlice)
 themeButton.addEventListener('click', changeTheme)
 zoomInButton.addEventListener('click', zoomIn)
 zoomOutButton.addEventListener('click', zoomOut)
+zoomResetButton.addEventListener('click', zoomReset)
 xCheckbox.addEventListener('change', toggleX)
 yCheckbox.addEventListener('change', toggleY)
 tabs.forEach(tab => tab.addEventListener('click', tabClickHandler))
@@ -146,6 +149,7 @@ function svgLeaveHandler() {
 
 function svgClickHandler(e: MouseEvent) {
   if (!svg) return
+  if (sliceX || sliceY) return
   if (isX) sliceX = e.offsetX
   if (isY) sliceY = e.offsetY
   setSliceStats()
@@ -193,7 +197,7 @@ function processSvg(tw: string | number, th: string | number, withOutput = true)
 
   // widths & heights
   const processWidthOrHeight = (widthOrHeight: 'width' | 'height', processMethod: (n: string, offset?: number) => void) => {
-    let regex = new RegExp(`(<.+\\s)${widthOrHeight}="[\\d.]+("[^>]+>)`, 'gm')
+    let regex = new RegExp(`(<[^>]+\\s)${widthOrHeight}="[\\d.]+("[^>]+>)`, 'gm')
     const allElementsWithWidthOrHeight = output.match(regex)
     regex = new RegExp(regex, '')
     const numberRegex = new RegExp(`\\s${widthOrHeight}="([\\d.]+)"`, '')
@@ -263,9 +267,9 @@ function processSvg(tw: string | number, th: string | number, withOutput = true)
   const outViewboxDimensions =
     p('${', !numberTargetWidth) + targetWidth + p('}', !numberTargetWidth) + ' ' +
     p('${', !numberTargetHeight) + targetHeight + p('}', !numberTargetHeight)
-  regex = /(viewBox="[\d.]+\s[\d.]+\s)[\d.]+\s[\d.]+(")/
+  regex = /viewBox="([\d.]+\s[\d.]+\s)[\d.]+\s[\d.]+"/
   const isVbDynamic = outViewboxDimensions.includes('${')
-  output = output.replace(regex, `${p(':', isVbDynamic)}$1${outViewboxDimensions}$2`)
+  output = output.replace(regex, `${p(':', isVbDynamic)}viewBox="${p('`', isVbDynamic)}$1${outViewboxDimensions}${p('`', isVbDynamic)}"`)
 
   // all processing done, handle output
   if (withOutput) {
@@ -392,11 +396,11 @@ function processNumberX(n: string, offset = 0) {
   const float = parseFloat(n)
   if (!isX || float + offset < sliceX) return Number(float.toFixed(2))
   const distanceFromRight = svgWidth - float
-  const dispanceFromRightFixed = Number(distanceFromRight.toFixed(2))
+  const distanceFromRightFixed = Number(distanceFromRight.toFixed(2))
   if (numberTargetWidth) {
-    return Number((numberTargetWidth - dispanceFromRightFixed).toFixed(2))
+    return Number((numberTargetWidth - distanceFromRightFixed).toFixed(2))
   } else {
-    return targetWidth + (dispanceFromRightFixed ? ' - ' + dispanceFromRightFixed : '')
+    return targetWidth + (distanceFromRightFixed ? ' - ' + distanceFromRightFixed : '')
   }
 }
 
@@ -455,17 +459,15 @@ function applyTemplate(html: string, type: OutputType) {
   if (type == 'template' || !html.includes('<svg')) return html
   let processedTemplate = ''
   if (
-    isX && isY && numberTargetWidth && numberTargetHeight ||
-    isX && !isY && numberTargetWidth ||
-    !isX && isY && numberTargetHeight
+    (numberTargetHeight && numberTargetWidth) &&
+    (type == 'vue' || type =='vue_rt')
   ) {
-    setOutputFormat('template')
-    return `this output format is not supported for static SVGs
-    
-to generate a dynamic SVG, try setting target width and/or height to a variable name instead of a number, eg \`width\` and \`height\``
+    processedTemplate = vueNoPropsTemplate
+  } else if (type == 'vue') {
+    processedTemplate = vueTemplate
+  } else if (type == 'vue_rt') {
+    processedTemplate = vueRtTemplate
   }
-  if (type == 'vue') processedTemplate = vueTemplate
-  else if (type == 'vue_rt') processedTemplate = vueRtTemplate
   if (!isX || isX && numberTargetWidth) processedTemplate = processedTemplate.replace(/,?\n.+%width_var%.+/g, '')
   if (!isY || isY && numberTargetHeight) processedTemplate = processedTemplate.replace(/,?\n.+%height_var%.+/g, '')
   processedTemplate = processedTemplate
@@ -515,6 +517,10 @@ function zoomOut() {
   setZoom(zoom - 0.1)
 }
 
+function zoomReset() {
+  setZoom(1)
+}
+
 function setZoom(value: number) {
   zoom = value
   imagesWrapper.style.transform = `scale(${zoom})`
@@ -534,15 +540,17 @@ function handleTransformMessage() {
 // toggle x and y
 function toggleX() {
   sliceX = null
-  setVerticalSelectorPos(false)
   isX = !isX
+  setVerticalSelectorPos(false)
   setSliceStats()
+  resetSlice()
 }
 function toggleY() {
   sliceY = null
-  setHorizontalSelectorPos(false)
   isY = !isY
+  setHorizontalSelectorPos(false)
   setSliceStats()
+  resetSlice()
 }
 
 // output format tabs

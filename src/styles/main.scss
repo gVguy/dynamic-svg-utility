@@ -144,16 +144,25 @@ body {
          background: #010101;
          padding: 10px;
          display: flex;
+         flex-wrap: wrap;
+         gap: 10px;
          justify-content: center;
          align-items: center;
          color: white;
-
-         &>* {
-            margin: 5px;
-         }
          
          .text-input {
             width: 10ch;
+         }
+
+         fieldset {
+            display: flex;
+            gap: 5px;
+            padding: 7px;
+         }
+
+         &>button {
+            margin-top: auto;
+            margin-bottom: 8px;
          }
       }
 
